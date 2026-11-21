@@ -1,0 +1,160 @@
+# nginx main config for the single ERPNext container.
+# Rendered by railway-entrypoint.sh with envsubst (only the variables listed
+# there are substituted; nginx $variables are left alone).
+#
+# The server block is adapted from frappe_docker
+# resources/core/nginx/nginx-template.conf (MIT), with these changes:
+#   * a fixed site name (SITE_NAME) instead of $host, so the Railway domain,
+#     a custom domain and Railway's healthcheck host all reach the same site;
+#   * socket.io Origin/Host point at the local gunicorn so Frappe's realtime
+#     auth callback stays inside the container (see the /socket.io block);
+#   * logs go to the inherited stderr fd and access logs are off by default
+#     (Railway's edge already logs HTTP requests).
+
+worker_processes 1;
+pid /tmp/nginx.pid;
+error_log stderr warn;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+	include /etc/nginx/mime.types;
+	default_type application/octet-stream;
+	server_tokens off;
+	access_log off;
+
+	client_body_temp_path /tmp/nginx-client-body;
+	proxy_temp_path /tmp/nginx-proxy;
+	fastcgi_temp_path /tmp/nginx-fastcgi;
+	uwsgi_temp_path /tmp/nginx-uwsgi;
+	scgi_temp_path /tmp/nginx-scgi;
+
+	upstream backend-server {
+		server 127.0.0.1:8000 fail_timeout=0;
+	}
+
+	upstream socketio-server {
+		server 127.0.0.1:9000 fail_timeout=0;
+	}
+
+	# Railway terminates TLS at its edge and sends X-Forwarded-Proto.
+	map "${TRUST_UPSTREAM_FORWARDED_PROTO}:$http_x_forwarded_proto" $proxy_x_forwarded_proto {
+		default $scheme;
+		"on:https" https;
+	}
+
+	map $http_upgrade $connection_upgrade {
+		default upgrade;
+		"" close;
+	}
+
+	server {
+		listen ${PORT} default_server;
+		server_name _;
+		absolute_redirect off;
+		root /home/frappe/frappe-bench/sites;
+
+		proxy_buffer_size 128k;
+		proxy_buffers 4 256k;
+		proxy_busy_buffers_size 256k;
+
+		include /etc/nginx/snippets/security_headers.conf;
+
+		set_real_ip_from ${UPSTREAM_REAL_IP_ADDRESS};
+		real_ip_header ${UPSTREAM_REAL_IP_HEADER};
+		real_ip_recursive ${UPSTREAM_REAL_IP_RECURSIVE};
+
+		location /assets {
+			try_files $uri =404;
+		}
+
+		location ~ ^/protected/(.*) {
+			internal;
+			try_files /${SITE_NAME}/$1 =404;
+		}
+
+		location /socket.io {
+			proxy_http_version 1.1;
+			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+			proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
+			proxy_set_header X-Forwarded-SSL "";
+			proxy_set_header X-Forwarded-Protocol "";
+			proxy_set_header Upgrade $http_upgrade;
+			proxy_set_header Connection $connection_upgrade;
+			proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
+			# Frappe's socket.io (realtime/middlewares/authenticate.js) requires
+			# hostname(Origin) == hostname(Host), then authenticates the user by
+			# calling <Origin>/api/method/frappe.realtime.get_user_info. Pointing
+			# both at the local gunicorn keeps that call inside the container
+			# (no hairpin through the public domain, works with any custom domain
+			# or CDN in front). The site is selected by X-Frappe-Site-Name.
+			proxy_set_header Origin http://127.0.0.1:8000;
+			proxy_set_header Host 127.0.0.1:8000;
+			proxy_read_timeout 3600s;
+
+			proxy_pass http://socketio-server;
+		}
+
+		location / {
+			rewrite ^(.+)/$ $1 permanent;
+			rewrite ^(.+)/index\.html$ $1 permanent;
+			rewrite ^(.+)\.html$ $1 permanent;
+
+			# Match Frappe's forced-download extensions regardless of case.
+			location ~ ^/files/(?s:.*)\.(?i:svg|svgz|html|htm|xhtml|xht|shtml|shtm|mhtml|mht|xml|xsl|xslt|swf)\z {
+				include /etc/nginx/snippets/security_headers.conf;
+				add_header Content-disposition "attachment";
+				try_files /${SITE_NAME}/public/$uri @webserver;
+			}
+
+			try_files /${SITE_NAME}/public/$uri @webserver;
+		}
+
+		location @webserver {
+			proxy_http_version 1.1;
+			proxy_set_header X-Forwarded-For $remote_addr;
+			proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
+			proxy_set_header X-Forwarded-SSL "";
+			proxy_set_header X-Forwarded-Protocol "";
+			proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
+			proxy_set_header Host $host;
+			proxy_set_header X-Use-X-Accel-Redirect True;
+			proxy_read_timeout ${PROXY_READ_TIMEOUT};
+			proxy_redirect off;
+
+			proxy_pass http://backend-server;
+		}
+
+		sendfile on;
+		keepalive_timeout 15;
+		client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+		client_body_buffer_size 16K;
+		client_header_buffer_size 1k;
+
+		gzip on;
+		gzip_http_version 1.1;
+		gzip_comp_level 5;
+		gzip_min_length 256;
+		gzip_proxied any;
+		gzip_vary on;
+		gzip_types
+			application/atom+xml
+			application/javascript
+			application/json
+			application/rss+xml
+			application/vnd.ms-fontobject
+			application/x-font-ttf
+			application/font-woff
+			application/x-web-app-manifest+json
+			application/xhtml+xml
+			application/xml
+			font/opentype
+			image/svg+xml
+			image/x-icon
+			text/css
+			text/plain
+			text/x-component;
+	}
+}

@@ -1,0 +1,20 @@
+# Server settings Frappe/ERPNext needs. Mirrors the command flags in
+# frappe_docker overrides/compose.mariadb.yaml.
+[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+skip-character-set-client-handshake
+# MariaDB 11.8 turns snapshot isolation on by default; Frappe needs it off.
+innodb-snapshot-isolation = OFF
+
+# Lean memory defaults for a small ERPNext site (raise for bigger data sets).
+innodb-buffer-pool-size = 256M
+max-connections = 100
+performance-schema = OFF
+skip-name-resolve
+
+[mysql]
+default-character-set = utf8mb4
+
+[client]
+default-character-set = utf8mb4

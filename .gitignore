@@ -1,0 +1,17 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Local data / backups pulled out of a container
+backups/
+*.sql
+*.sql.gz
+*.tgz
+*.tar
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
