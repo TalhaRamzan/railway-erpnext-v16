@@ -24,7 +24,7 @@ project afterwards.
 | `bench new-site / backup / restore / migrate` options exist in frappe `version-16` `commands/site.py` | pass |
 | supervisor 4.3.0 wheel sha256 matches PyPI | pass |
 
-## B. Local run (`docker compose`) — NOT yet done (no Docker on the build machine)
+## B. Local run (`docker compose`)
 
 ```bash
 cp .env.example .env   # fill DB_ROOT_PASSWORD, REDIS_PASSWORD, ADMIN_PASSWORD
@@ -56,7 +56,7 @@ docker compose up --build
 - [ ] Non-root reopen check: nginx logs errors to stderr fine (no `open() "/dev/stdout" failed (13: Permission denied)`).
 - [ ] Wrong DB password → clear "Access denied" error, not an endless loop.
 
-## C. Railway deploy — NOT yet done
+## C. Railway deploy
 
 Build the template exactly as in `railway-template.md`, deploy it into a **new, separate
 test project** (never a project that runs anything else).
