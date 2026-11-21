@@ -102,3 +102,12 @@ test project** (never a project that runs anything else).
 - PASS: `restore.sh <folder> --yes` → record created after the backup is gone, older record back; all supervisord programs RUNNING; maintenance mode off.
 - PASS: disaster recovery: `docker compose down -v` (DB + site volume wiped), fresh boot, `restore.sh s3:latest --yes` → old record back, admin login works, no decryption errors in logs.
 - PASS: retention with BACKUP_KEEP=3: after 4 more manual backups only the newest 3 manual folders remain (plus the separate pre-restore safety backup, which is kept outside the count).
+
+## Railway deploy results (2026-11-21, Hobby plan, project created 19:19 UTC, deleted 19:35 UTC)
+- PASS: both services build from this GitHub repo (MariaDB with Root Directory `/mariadb`, ERPNext with `/`); volumes at `/var/lib/mysql` and `/home/frappe/frappe-bench/sites` attach fine (root-owned volume handled by the entrypoint).
+- PASS: references `${{MariaDB.RAILWAY_PRIVATE_DOMAIN}}`, `${{MariaDB.MARIADB_ROOT_PASSWORD}}`, `${{Redis.REDIS_URL}}` (Railway Redis URL format parsed correctly), `${{secret(...)}}`.
+- PASS: first boot "Creating site 'erp.local'… Setup complete." within the 900 s healthcheck window (build + site ≈ 10 min); all supervisord programs RUNNING; worker processing jobs.
+- PASS (public domain): `/api/method/ping` → pong, `/login` 200, socket.io polling 200, public sign-up rejected ("Sign Up is disabled").
+- Measured RAM on Railway (idle, fresh site): ERPNext ~690 MB, MariaDB ~290 MB, Redis ~19 MB → ~1.0 GB ≈ $10/month RAM.
+- Note: supervisord lines appear twice in Railway logs (log noise only).
+- Not re-tested on Railway (passed locally): Administrator login, restore, S3 backup copy.
