@@ -9,7 +9,7 @@ manufacturing, projects, HR add-ons) and a common alternative to Odoo or
 SAP Business One. This template gives you a working ERPNext v16 site on
 Railway in about 10 minutes, with backups switched on from day one.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/TEMPLATE_CODE)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/erpnext-v16-1)
 
 ## What you get
 

@@ -14,6 +14,16 @@ Pinned versions (verified 2026-11-21):
 | Redis | Railway's Redis database service (optionally set image to `redis:8.6.8`) | Railway dashboard |
 | supervisor | 4.3.0 (sha256-pinned wheel) | `Dockerfile` |
 
+> **Published template:** https://railway.com/deploy/erpnext-v16-1 (published 2026-11-22).
+>
+> **How the published version was built** (Railway's template generator keeps only variables containing `${{...}}`,
+> drops plain values and service healthcheck timeouts, and needs a GitHub-app link to generate repo services):
+> the template was generated from a project with placeholder images, then each repo service's source was switched
+> to this GitHub repo in the template composer. Only secrets and references are template variables; every other
+> setting has a default in the image (Dockerfile `ENV` / entrypoint `${VAR:-default}`). Railway injects `PORT=8080`;
+> the public domain targets 8080. Healthcheck (900 s) and restart policy come from `railway.json` / `mariadb/railway.json`. Redis is a `redis:8.6.8` image service with a `/data` volume (start command chowns the volume first).
+> Verified by deploying the template itself into an empty project with zero inputs.
+
 ---
 
 ## 0. Before you start
